@@ -59,24 +59,27 @@ class MoleculeLoader:
         paths = self._path
 
         index_tuples = []
-        sequences = []
+        rows = []
 
         for path in paths:
             seqs = self._load_dispatch(path, "seq")
             for _, row in seqs.iterrows():
-                index_tuples.append((path, row["chain_id"]))
-                sequences.append(row["sequence"])
+                index_tuples.append((path, row.get("chain_id", pd.NA)))
+                rows.append({k: v for k, v in row.items() if k != "chain_id"})
 
         index = pd.MultiIndex.from_tuples(index_tuples, names=["path", "chain_id"])
 
-        columns = ["sequence"] if self.columns is None else self.columns
-
-        return pd.DataFrame(sequences, index=index, columns=columns)
+        df = pd.DataFrame(rows, index=index)
+        if self.columns is not None:
+            df = df[self.columns]
+        return df
 
     def _determine_type(self, path):
         suffix = path.suffix.lower()
         if suffix == ".pdb":
             return "pdb"
+        elif suffix == ".csv":
+            return "csv"
         else:
             raise ValueError(f"Unsupported file type: {suffix}")
 
@@ -109,3 +112,18 @@ class MoleculeLoader:
             for record in seqres_records
         ]
         return pd.DataFrame.from_records(records, columns=["chain_id", "sequence"])
+
+    def _load_csv_seq(self, path):
+        """Load a CSV file.
+        
+        Parameters
+        -----------
+        path : Path
+            path to CSV file
+            
+        Returns
+        --------
+        pandas.DataFrame
+            DataFrame loaded from the CSV.
+        """
+        return pd.read_csv(path)

@@ -1,6 +1,8 @@
 __author__ = ["nennomp", "satvshr"]
 __all__ = ["AptaNetClassifier", "AptaNetRegressor"]
 
+import contextlib
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -13,6 +15,24 @@ from sklearn.utils.validation import check_is_fitted, validate_data
 from torch import optim
 
 from pyaptamer.aptanet._aptanet_nn import AptaNetMLP
+
+
+@contextlib.contextmanager
+def _temp_seed(seed):
+    if seed is None:
+        yield
+        return
+
+    np_state = np.random.get_state()
+    torch_state = torch.random.get_rng_state()
+
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    try:
+        yield
+    finally:
+        np.random.set_state(np_state)
+        torch.random.set_rng_state(torch_state)
 
 
 class AptaNetClassifier(ClassifierMixin, BaseEstimator):
@@ -118,15 +138,13 @@ class AptaNetClassifier(ClassifierMixin, BaseEstimator):
                 f"Only binary classification is supported. Got target type {y_type}."
             )
 
-        if self.random_state is not None:
-            np.random.seed(self.random_state)
-            torch.manual_seed(self.random_state)
-
         self.classes_, y = np.unique(y, return_inverse=True)
         self.pipeline_ = self._build_pipeline()
-        self.pipeline_.fit(
-            X.astype(np.float32, copy=False), y.astype(np.float32, copy=False)
-        )
+        
+        with _temp_seed(self.random_state):
+            self.pipeline_.fit(
+                X.astype(np.float32, copy=False), y.astype(np.float32, copy=False)
+            )
         return self
 
     def predict_proba(self, X):
@@ -301,14 +319,12 @@ class AptaNetRegressor(RegressorMixin, BaseEstimator):
         X, y = validate_data(self, X, y)
         y = y.reshape(-1, 1)
 
-        if self.random_state is not None:
-            np.random.seed(self.random_state)
-            torch.manual_seed(self.random_state)
-
         self.pipeline_ = self._build_pipeline()
-        self.pipeline_.fit(
-            X.astype(np.float32, copy=False), y.astype(np.float32, copy=False)
-        )
+        
+        with _temp_seed(self.random_state):
+            self.pipeline_.fit(
+                X.astype(np.float32, copy=False), y.astype(np.float32, copy=False)
+            )
         return self
 
     def predict(self, X):

@@ -3,13 +3,13 @@ __all__ = ["APIDataset"]
 
 import numpy as np
 import torch
-from torch.utils.data import Dataset
 
+from pyaptamer.datasets.dataclasses._base import BaseDataset
 from pyaptamer.utils import encode_rna, rna2vec
 from pyaptamer.utils._augment import augment_reverse
 
 
-class APIDataset(Dataset):
+class APIDataset(BaseDataset):
     """A PyTorch dataset for aptamer-protein interaction (API) data.
 
     Parameters
@@ -45,19 +45,23 @@ class APIDataset(Dataset):
         prot_words: dict[str, int],
         split: str = "train",
     ) -> None:
+        self.x_apta = x_apta
+        self.x_prot = x_prot
+        self.y = y
+        self.apta_max_len = apta_max_len
+        self.prot_max_len = prot_max_len
+        self.prot_words = prot_words
+        self.split = split
         super().__init__()
 
         if split not in ["train", "test"]:
             raise ValueError(f"Unknown split: {split}. Options are 'train' and 'test'.")
 
-        self.apta_max_len = apta_max_len
-        self.prot_max_len = prot_max_len
-        self.prot_words = prot_words
-        self.split = split
+        self._x_apta, self._x_prot, self._y = self._prepare_data(
+            self.x_apta, self.x_prot, self.y, self.split
+        )
 
-        self.x_apta, self.x_prot, self.y = self._prepare_data(x_apta, x_prot, y, split)
-
-        self.len = len(self.x_apta)
+        self._len = len(self._x_apta)
 
     def _prepare_data(
         self,
@@ -104,7 +108,7 @@ class APIDataset(Dataset):
         return (x_apta, x_prot, y)
 
     def __len__(self):
-        return self.len
+        return self._len
 
     def __getitem__(self, index):
-        return (self.x_apta[index], self.x_prot[index], self.y[index])
+        return (self._x_apta[index], self._x_prot[index], self._y[index])

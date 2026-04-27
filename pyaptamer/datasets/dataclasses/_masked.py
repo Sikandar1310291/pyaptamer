@@ -6,10 +6,11 @@ import random
 import numpy as np
 import torch
 from torch import Tensor
-from torch.utils.data import Dataset
+
+from pyaptamer.datasets.dataclasses._base import BaseDataset
 
 
-class MaskedDataset(Dataset):
+class MaskedDataset(BaseDataset):
     """A PyTorch dataset for masked language modeling on DNA/RNA sequences.
 
     Original implementation: https://github.com/PNUMLB/AptaTrans/blob/master/utils.py
@@ -68,6 +69,12 @@ class MaskedDataset(Dataset):
         masked_rate: float = 0.15,
         is_rna: bool = False,
     ) -> None:
+        self.x = x
+        self.y = y
+        self.max_len = max_len
+        self.mask_idx = mask_idx
+        self.masked_rate = masked_rate
+        self.is_rna = is_rna
         super().__init__()
 
         if len(x) != len(y):
@@ -76,14 +83,9 @@ class MaskedDataset(Dataset):
                 f"Got x: {len(x)}, y: {len(y)}"
             )
 
-        self.x, self.y = np.array(x), np.array(y)
-        self.max_len = max_len
-        self.mask_idx = mask_idx
-        self.masked_rate = masked_rate
-        self.is_rna = is_rna
-
+        self._x, self._y = np.array(x), np.array(y)
         self.box = np.array(list(range(max_len)))
-        self.len = len(self.x)
+        self._len = len(self._x)
 
     def _mask_rna(self, x_masked: Tensor, mask_positions: list[int]) -> Tensor:
         """Mask adjacent nucleotides for RNA sequences.
@@ -121,7 +123,7 @@ class MaskedDataset(Dataset):
         int
             Number of sequences in the dataset.
         """
-        return self.len
+        return self._len
 
     # TODO: For now this method applies masking as originally intended in AptaTrans
     # code. However, there may some errors:
@@ -147,8 +149,8 @@ class MaskedDataset(Dataset):
             sequence with non-masked positions set to 0, original input sequence, and
             original target sequence, respectively.
         """
-        x = torch.tensor(self.x[index], dtype=torch.int64)
-        y = torch.tensor(self.y[index], dtype=torch.int64)
+        x = torch.tensor(self._x[index], dtype=torch.int64)
+        y = torch.tensor(self._y[index], dtype=torch.int64)
 
         x_masked = x.clone().detach()
         y_masked = x.clone().detach()
